@@ -18,14 +18,21 @@ client = MongoClient("localhost", 27017)
 db = client.get_database("law_forecast_minshi1")
 collection_doc = db['doc']
 collection_doc_word_reference = db['doc_word_reference']
+collection_doc_for_test = db['doc_for_test']
 
 
-def add_doc(doc_no, words_tfs):
-    collection_doc.insert({'doc_no': doc_no, 'words_tfs': words_tfs})
+def add_doc(doc_no, words_tfs, is_train=True):
+    if is_train:
+        collection_doc.insert({'doc_no': doc_no, 'words_tfs': words_tfs})
+    else:
+        collection_doc_for_test.insert({'doc_no': doc_no, 'words_tfs': words_tfs})
 
 
-def add_relevant_law(doc_no, laws):
-    collection_doc.update({'doc_no': doc_no}, {'$set': {'法条': laws}}, True)
+def add_relevant_law(doc_no, laws, is_train=True):
+    if is_train:
+        collection_doc.update({'doc_no': doc_no}, {'$set': {'法条': laws}}, True)
+    else:
+        collection_doc_for_test.update({'doc_no': doc_no}, {'$set': {'法条': laws}}, True)
 
 
 def recalculate_reference():
@@ -55,24 +62,33 @@ def calculate_idf():
         collection_doc_word_reference.update({"_id": _id}, {"$set": {"idf": idf}})
 
 
-def calculate_tf_idf():
+def calculate_tf_idf(is_train=True):
     count = 0
-    for item in collection_doc.find():
+    collection = None
+    if is_train:
+        collection = collection_doc
+    else:
+        collection = collection_doc_for_test
+    for item in collection.find(no_cursor_timeout=True):
         _id = item['_id']
         words_tfs = item['words_tfs']
         words_tf_idfs = {}
         count += 1
-        if count % 100 == 0:
-            print count
+        # if count % 100 == 0:
+        #     print count
+        # if count < 30801:
+        #     continue
         for key, value in words_tfs.items():
-            idf = collection_doc_word_reference.find_one({'word': key})['idf']
-            tf_idf = idf * value
-            words_tf_idfs[key] = tf_idf
-        collection_doc.update({"_id": _id}, {"$set": {"words_tf_idfs": words_tf_idfs}})
+            word_idf = collection_doc_word_reference.find_one({'word': key})
+            if word_idf is None:
+                print "语料库缺少词：", key
+                continue
+            else:
+                idf = word_idf['idf']
+                tf_idf = idf * value
+                words_tf_idfs[key] = tf_idf
+        collection.update({"_id": _id}, {"$set": {"words_tf_idfs": words_tf_idfs}})
 
-
-def append_law(doc_no, laws):
-    pass
 
 
 def append_ay(doc_no, ay):
@@ -86,9 +102,9 @@ def append_ay(doc_no, ay):
 
 def process_doc_tf_idf():
     # recalculate_reference()
-    print "reference calculation done"
-    calculate_idf()
-    print "idf calculation done"
+    # print "reference calculation done"
+    # calculate_idf()
+    # print "idf calculation done"
     calculate_tf_idf()
 
 
@@ -109,33 +125,56 @@ def get_word_vec_label():
         vec.append(item['word'])
     return vec
 
+calculate_tf_idf(False)
+alarm.alarm(5)
 
-def get_doc_feature_by_law(law_name, article_no, vec_label):
-    features = []
-    doc_nos = []
-    for item in collection_doc.find({"法条": {"$elemMatch": {"名称": law_name, "条号": article_no}}},
-                                    {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}):
-        words_tf_idfs = item['words_tf_idfs']
-        doc_nos.append(item['doc_no'])
-        vec = [0 for x in range(0, len(vec_label) - 1)]
-        for key, value in words_tf_idfs:
-            for i in (0, len(vec_label) - 1):
-                if key == vec_label[i]:
-                    vec[i] = value
+
+class DocFeature:
+    def __init__(self, is_train_set):
+        if is_train_set:
+            self.collection = collection_doc
+        else:
+            self.collection = collection_doc_for_test
+
+    def get_doc_feature_by_law(self, law_name, article_no, vec_label):
+        features = []
+        doc_nos = []
+        for item in collection_doc.find({"法条": {"$elemMatch": {"名称": law_name, "条号": article_no}}},
+                                        {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}):
+            # print item['doc_no']
+            words_tf_idfs = item['words_tf_idfs']
+            doc_nos.append(item['doc_no'])
+            vec = [0 for x in range(0, len(vec_label))]
+            for key, value in words_tf_idfs.items():
+                for i in range(0, len(vec_label)):
+                    if key == vec_label[i]:
+                        vec[i] = value
+                        # print "->", item['doc_no']
+                        break
+            features.append(vec)
+        return {"doc_nos": doc_nos, "features": features}
+
+    def get_doc_feature_exclude_nos(self, doc_nos, vec_label, size):
+        features = []
+        count = 0
+        for item in collection_doc.find({}, {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}):
+            if item['doc_no'] in doc_nos:
+                continue
+            else:
+                count += 1
+                if count > size:
                     break
-        features.append(vec)
-    return {"doc_nos": doc_nos, "features": features}
+                words_tf_idfs = item['words_tf_idfs']
+                vec = [0 for x in range(0, len(vec_label))]
+                for key, value in words_tf_idfs.items():
+                    for i in range(0, len(vec_label) - 1):
+                        if key == vec_label[i]:
+                            vec[i] = value
+                            break
+                features.append(vec)
+        return features
 
 
-def get_doc_feature_by_no(doc_no, vec_label):
-    features = []
-    for item in collection_doc.find({"doc_no": doc_no}, {"words_tf_idfs": 1, "_id": 0}):
-        words_tf_idfs = item['words_tf_idfs']
-        vec = [0 for x in range(0, len(vec_label) - 1)]
-        for key, value in words_tf_idfs:
-            for i in (0, len(vec_label) - 1):
-                if key == vec_label[i]:
-                    vec[i] = value
-                    break
-        features.append(vec)
-    return features
+        # process_doc_tf_idf()
+
+

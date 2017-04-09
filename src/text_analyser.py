@@ -17,7 +17,7 @@ sys.setdefaultencoding('utf-8')
 ana.set_stop_words("../data/stop_words.txt")
 
 
-def analyse(doc_no, path):
+def analyse(doc_no, path, is_train):
     AJJBQK = xml.getAJJBQK(path)
     if AJJBQK is not None:
         tags = ana.extract_tags(AJJBQK, topK=100, withWeight=True, allowPOS=('n', 'v'))
@@ -25,13 +25,13 @@ def analyse(doc_no, path):
         for item in tags:
             # print item[0].encode('utf-8'),item[1]
             words_tfs[item[0]] = item[1]
-        mongo.add_doc(doc_no, words_tfs)
+        mongo.add_doc(doc_no, words_tfs, is_train)
         return True
     else:
         return False
 
 
-def make_collection_doc(dir_name="../data/test_sets/MinShi1/train"):
+def make_collection_doc(dir_name="../data/test_sets/MinShi1/train/", is_train=True):
     start = time.clock()
     # dir_name = "../data/test_sets/MinShi1"
     file_list = os.listdir(dir_name)
@@ -44,7 +44,7 @@ def make_collection_doc(dir_name="../data/test_sets/MinShi1/train"):
         m = re.search(pattern, file_name)
         if m:
             doc_no = m.group(1)
-            isValid = analyse(doc_no, "../data/test_sets/MinShi1/train/" + str(doc_no) + ".xml")
+            isValid = analyse(doc_no, dir_name + str(doc_no) + ".xml", is_train)
             # isValid = xml.get_laws(dir_name+"/"+file_name)
             # print json.dumps(isValid, encoding='utf-8', ensure_ascii=False)
             if isValid:
@@ -76,7 +76,7 @@ def analyse_ay(dir_name="../data/test_sets/MinShi1/train/"):
                 mongo.append_ay(doc_no, ay)
         else:
             print "文件名错误: ", file_name
-# make_collection_doc()
+# make_collection_doc("../data/test_sets/MinShi1/test/", False)
 '''
 关键字选取，标准是足够让我从这些关键词中，猜出大致发生了什么事
 '''

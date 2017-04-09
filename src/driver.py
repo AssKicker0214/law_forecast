@@ -11,8 +11,7 @@ from text_analyser import make_collection_doc
 from xml_reader import get_laws
 
 
-def append_law_to_doc():
-    dir_name = "../data/test_sets/MinShi1/train"
+def append_law_to_doc(dir_name="../data/test_sets/MinShi1/train/", is_train=True):
     file_list = os.listdir(dir_name)
     i = 0
     j = 0
@@ -23,11 +22,11 @@ def append_law_to_doc():
         m = re.search(pattern, file_name)
         if m:
             doc_no = m.group(1)
-            laws = get_laws(dir_name + "/" + file_name)
+            laws = get_laws(dir_name + file_name)
             # print doc_no
             # print json.dumps(laws, encoding='utf-8', ensure_ascii=False)
             if laws:
-                mongo.add_relevant_law(doc_no, laws)
+                mongo.add_relevant_law(doc_no, laws, is_train)
                 i += 1
         else:
             print "文件名错误: ", file_name
@@ -43,8 +42,8 @@ def make_corpus():
 
 
 time.clock()
-# append_law_to_doc()
+append_law_to_doc("../data/test_sets/MinShi1/test/", False)
 # make_corpus()
-ta.analyse_ay()
+# ta.analyse_ay()
 print time.clock()
 alarm(10)
