@@ -1,7 +1,8 @@
 # coding=utf-8
-import xml.dom.minidom as utl
 import re
-import han2arabic as trans
+import xml.dom.minidom as utl
+
+from src.tool import han2arabic as trans
 
 
 def getAJJBQK(filePath):

@@ -3,10 +3,11 @@ import json
 import os
 import re
 import time
+
 import mongodb_connector as mongo
-from text_analyser import make_collection_doc
 import text_analyser as ta
-from alarm import alarm
+from src.tool.alarm import alarm
+from text_analyser import make_collection_doc
 from xml_reader import get_laws
 
 

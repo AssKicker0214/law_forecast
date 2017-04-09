@@ -1,13 +1,12 @@
 # coding=utf-8
 import json
+import sys
 import time
 
-import sys
-
-import src.alarm
-
-from pymongo import MongoClient
 from jieba import analyse as ana
+from pymongo import MongoClient
+
+import src.tool.alarm
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -92,6 +91,5 @@ def clear_db():
 def get_law_featured():
     laws = collection_article_featured.find({}, {'_id':0})
     return laws
-
 
 # process()
