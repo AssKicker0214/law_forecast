@@ -74,7 +74,7 @@ def auto_train():
     for item in itr:
         start = time.time()
         cnt += 1
-        if cnt==2:
+        if cnt<4:
             continue
         law_name = item["_id"][u"名称"]
         law_no = item["_id"][u"条号"]
@@ -86,7 +86,7 @@ def auto_train():
         test_result = test(law_name, law_no, False)
         test_end = time.time()
         print "测试完成", "花费"+str(test_end-start)
-        file_obj.write(law_name+"#"+str(law_no)+" 精度:"+test_result+",数目:"+str(item[u'数目'])+",比例:"+str(round(100*item[u'比例'], ndigits=2))+"% train_cost:"+str(train_end-start)+" test_cost:"+str(test_end-start))
+        file_obj.write(law_name+"#"+str(law_no)+" 精度:"+str(test_result)+",数目:"+str(item[u'数目'])+",比例:"+str(round(100*item[u'比例'], ndigits=2))+"% train_cost:"+str(train_end-start)+" test_cost:"+str(test_end-start))
         file_obj.write("\n")
         file_obj.flush()
         print ""
