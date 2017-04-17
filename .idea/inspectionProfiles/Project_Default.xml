@@ -13,6 +13,8 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="mongodb_connector" />
+          <option value="alarm" />
+          <option value="src.law.law_trainer.tool" />
         </list>
       </option>
     </inspection_tool>

@@ -11,14 +11,31 @@ from src.tool import alarm
 # 3. culculate inverse document frequency
 # 4. culculate tf_idf of DocCorpus as doc feature
 ##########################################################
-client = MongoClient("localhost", 27017)
 #### 注意修改数据库名
 # db_name = "law_forecast_minshi1"
+client = MongoClient("localhost", 27017)
 
 db = client.get_database("law_forecast_minshi1")
 collection_doc = db['doc']
 collection_doc_word_reference = db['doc_word_reference']
 collection_doc_for_test = db['doc_for_test']
+
+
+######################## 训练集和测试集是否有交叉？ 答案：没有
+# doc_no_for_test = []
+# doc_no = []
+# for doc in collection_doc_for_test.find({},{"doc_no":1, "_id":0}):
+#     doc_no_for_test.append(doc['doc_no'])
+# for doc in collection_doc.find({},{"doc_no":1, "_id":0}):
+#     doc_no.append(doc['doc_no'])
+#
+# count = 0
+# for n1 in doc_no:
+#     for n2 in doc_no_for_test:
+#         if n1 == n2:
+#             count += 1
+# print count
+
 
 
 def add_doc(doc_no, words_tfs, is_train=True):
@@ -90,7 +107,6 @@ def calculate_tf_idf(is_train=True):
         collection.update({"_id": _id}, {"$set": {"words_tf_idfs": words_tf_idfs}})
 
 
-
 def append_ay(doc_no, ay):
     collection_doc.update({'doc_no': doc_no}, {'$set': {'案由': ay}}, False)
 
@@ -118,30 +134,46 @@ def get_idf(db_name, collection_name, word):
         return 1.0
 
 
-def get_word_vec_label():
-    itr = collection_doc_word_reference.find({"reference": {"$gt": 1}}, {"word": 1, "_id": 0})
-    vec = []
-    for item in itr:
-        vec.append(item['word'])
-    return vec
-
-calculate_tf_idf(False)
-alarm.alarm(5)
+# calculate_tf_idf(False)
+# alarm.alarm(5)
+def get_sorted_law_reference():
+    itr = collection_doc.aggregate([{'$project': {"法条": 1, "doc_no": 1, "_id": 0}}, {'$unwind': "$法条"},
+                                    {'$group': {"_id": {"名称": "$法条.名称", "条号": "$法条.条号"}, "数目": {'$sum': 1}}},
+                                    {'$sort': {"数目": -1}},
+                                    {'$project': {"数目": 1, "比例": {'$divide': ["$数目", 118525]}}}])
+    return itr
 
 
 class DocFeature:
+    MAX = 5000
+
     def __init__(self, is_train_set):
+        c = MongoClient("localhost", 27017)
+
+        db_minshi = c.get_database("law_forecast_minshi1")
         if is_train_set:
-            self.collection = collection_doc
+            self.collection = db_minshi['doc']
         else:
-            self.collection = collection_doc_for_test
+            self.collection = db_minshi['doc_for_test']
+
+    def get_word_vec_label(self):
+        itr = collection_doc_word_reference.find({"reference": {"$gt": 1}}, {"word": 1, "_id": 0},
+                                                 no_cursor_timeout=True)
+        vec = []
+        for item in itr:
+            vec.append(item['word'])
+        return vec
 
     def get_doc_feature_by_law(self, law_name, article_no, vec_label):
         features = []
         doc_nos = []
-        for item in collection_doc.find({"法条": {"$elemMatch": {"名称": law_name, "条号": article_no}}},
-                                        {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}):
+        cnt = 0
+        for item in self.collection.find({"法条": {"$elemMatch": {"名称": law_name, "条号": article_no}}},
+                                         {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}, no_cursor_timeout=True):
             # print item['doc_no']
+            cnt += 1
+            if cnt > self.MAX:
+                break
             words_tf_idfs = item['words_tf_idfs']
             doc_nos.append(item['doc_no'])
             vec = [0 for x in range(0, len(vec_label))]
@@ -154,16 +186,18 @@ class DocFeature:
             features.append(vec)
         return {"doc_nos": doc_nos, "features": features}
 
-    def get_doc_feature_exclude_nos(self, doc_nos, vec_label, size):
+    def get_doc_feature_exclude_nos(self, doc_nos, vec_label, size=10000):
         features = []
+        doc_nos_excluded = []
         count = 0
-        for item in collection_doc.find({}, {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}):
+        for item in self.collection.find({}, {"words_tf_idfs": 1, "_id": 0, "doc_no": 1}, no_cursor_timeout=True):
             if item['doc_no'] in doc_nos:
                 continue
             else:
                 count += 1
-                if count > size:
+                if count > size or count>self.MAX:
                     break
+                doc_nos_excluded.append(item['doc_no'])
                 words_tf_idfs = item['words_tf_idfs']
                 vec = [0 for x in range(0, len(vec_label))]
                 for key, value in words_tf_idfs.items():
@@ -172,9 +206,7 @@ class DocFeature:
                             vec[i] = value
                             break
                 features.append(vec)
-        return features
+        return {"doc_nos": doc_nos_excluded, "features": features}
 
 
         # process_doc_tf_idf()
-
-
