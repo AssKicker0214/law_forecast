@@ -70,11 +70,11 @@ def test_result():
 def auto_train():
     itr = db_connector.get_sorted_law_reference()
     cnt = 0
-    file_obj = open("test_result.txt", "w")
+    file_obj = open("test_result.txt", "a")
     for item in itr:
         start = time.time()
         cnt += 1
-        if cnt<4:
+        if cnt<=2 or cnt == 8:
             continue
         law_name = item["_id"][u"名称"]
         law_no = item["_id"][u"条号"]
