@@ -1,6 +1,9 @@
 # coding=utf-8
+import json
 import math
+import random
 import time
+import re
 
 from pymongo import MongoClient
 from src.tool import alarm
@@ -50,6 +53,11 @@ def add_relevant_law(doc_no, laws, is_train=True):
         collection_doc.update({'doc_no': doc_no}, {'$set': {'法条': laws}}, True)
     else:
         collection_doc_for_test.update({'doc_no': doc_no}, {'$set': {'法条': laws}}, True)
+
+
+def get_relevant_law(doc_no, is_train=False):
+    laws = collection_doc_for_test.find_one({"doc_no": str(doc_no)})
+    return laws[u"法条"]
 
 
 def recalculate_reference():
@@ -164,6 +172,39 @@ class DocFeature:
             vec.append(item['word'])
         return vec
 
+    def get_set(self, law_name, law_no, amount):
+        doc_size = self.collection.find().count()
+        avg_gap = (doc_size + 0.0) / amount
+        vec_label = self.get_word_vec_label()
+        itr = self.collection.find({}, {"法条": 1, "doc_no": 1, "words_tf_idfs": 1, "_id": 0}, no_cursor_timeout=True)
+        features = []
+        labels = []
+        positive_amount = 0
+        negative_amount = 0
+        for item in itr:
+            if random.random() <= 1.0 / avg_gap:
+                words_tf_idfs = item["words_tf_idfs"]
+                vec = [0 for x in range(0, len(vec_label))]
+                for key, value in words_tf_idfs.items():
+                    for i in range(0, len(vec_label)):
+                        if key == vec_label[i]:
+                            vec[i] = value
+                            # print "->", item['doc_no']
+                            break
+                # print json.dumps(item, encoding='utf-8', ensure_ascii=False, indent=1)
+                laws = item[u"法条"]
+                label = 0
+                for law in laws:
+                    if law[u"名称"] == law_name and law[u"条号"] == law_no:
+                        label = 1
+                        positive_amount += 1
+                        negative_amount -= 1
+                        break
+                labels.append(label)
+                negative_amount += 1
+                features.append(vec)
+        return {"features": features, "labels": labels, "positive_amount": positive_amount, "negative_amount": negative_amount}
+
     def get_doc_feature_by_law(self, law_name, article_no, vec_label):
         features = []
         doc_nos = []
@@ -195,7 +236,7 @@ class DocFeature:
                 continue
             else:
                 count += 1
-                if count > size or count>self.MAX:
+                if count > size or count > self.MAX:
                     break
                 doc_nos_excluded.append(item['doc_no'])
                 words_tf_idfs = item['words_tf_idfs']
@@ -208,5 +249,55 @@ class DocFeature:
                 features.append(vec)
         return {"doc_nos": doc_nos_excluded, "features": features}
 
-
+    def text_to_vec(self, tf_idfs, label):
+        cnt = 0
+        vec = [0 for x in range(0, len(label))]
+        for item in tf_idfs:
+            word = item[0]
+            value = item[1]
+            if word == label[cnt]:
+                vec[cnt] = value
+            cnt += 1
+        return vec
         # process_doc_tf_idf()
+
+
+class TrainResult:
+    def __init__(self):
+        self.collection_train_result = MongoClient("localhost", 27017).get_database("law_forecast_minshi1")[
+            'train_result']
+
+    def import_data_from_file(self, path):
+        file_obj = open(path, 'r')
+        pattern = "(.+)#(\d+) 精度:(.+),数目:(\d+),比例:([\.\d]+)% train_cost:([\.\d]+) test_cost:([\.\d]+)"
+        # 《中华人民共和国劳动合同法》#85 精度:0.875,数目:57,比例:0.05% train_cost:5.64800000191 test_cost:6.58200001717
+        for line in file_obj:
+            ptn_obj = re.compile(pattern)
+            m = re.search(ptn_obj, line)
+            if m:
+                name = m.group(1)
+                no = int(m.group(2))
+                accuracy = m.group(3)
+                try:
+                    accuracy = float(m.group(3))
+                except ValueError:
+                    accuracy = None
+                amount = int(m.group(4))
+                rate = float(m.group(5))
+                train_cost = float(m.group(6))
+                total_cost = float(m.group(7))
+                test_cost = total_cost - train_cost
+                # print name, no, accuracy, amount, rate, train_cost, test_cost
+                self.collection_train_result.update({"名称": name, "条号": no},
+                                                    {"$set": {"精度": accuracy, "被引用数量": amount,
+                                                              "被引用百分比": rate,
+                                                              "总时间": total_cost,
+                                                              "训练时间": train_cost,
+                                                              "测试时间": test_cost}}, True)
+            else:
+                print line
+
+    def get_results(self):
+        results = self.collection_train_result.find({}, {"_id": 0, "测试时间": 0, "训练时间": 0, "总时间": 0},
+                                                    no_cursor_timeout=True)
+        return results
