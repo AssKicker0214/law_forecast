@@ -1,6 +1,8 @@
 # coding=utf-8
 import sys
 import time
+
+from sklearn.metrics import precision_score
 from sklearn.naive_bayes import GaussianNB
 from sklearn.externals import joblib
 from sklearn.metrics import accuracy_score
@@ -25,7 +27,13 @@ def test_of_NB(datas, labels, file_name, dir_name=u"../../data/model/"):
     gnb = joblib.load(str(dir_name + file_name + ".m").decode().encode(encoding="gbk"))
     if datas:
         pred = gnb.predict(datas)
-        return accuracy_score(pred, labels)
+        for i in range(0, len(pred)):
+            if pred[i] == 0 and labels[i] == 0:
+                continue
+            # print pred[i], labels[i]
+        precision = precision_score(pred, labels)
+        accuracy = accuracy_score(pred, labels)
+        return {"precision": precision, "accuracy": accuracy}
     else:
         return None
 
@@ -92,8 +100,10 @@ def process_nb(law_name, law_no, nb_size, is_train=True):
         return [prepare_time, train_time, positive_amount, negative_amount]
     else:
         print "开始测试...", "正集大小:", positive_amount, "负集大小:", negative_amount, "训练个数:", nb_size
-        accuracy = test_of_NB(features, labels, law_name + "-" + str(law_no), dir_name=u"../../data/new_model/")
-        return [accuracy, positive_amount, negative_amount]
+        test_result = test_of_NB(features, labels, law_name + "-" + str(law_no), dir_name=u"../../data/new_model/")
+        accuracy = test_result["accuracy"]
+        precision = test_result["precision"]
+        return [accuracy, precision, positive_amount, negative_amount]
 
 
 
@@ -106,15 +116,15 @@ def auto_train():
     for item in itr:
         start = time.time()
         cnt += 1
-        # if cnt <= 1000:
-        #     continue
+        if cnt <= 42:
+            continue
         # if cnt >= 1100:
         #     break
         law_name = item["_id"][u"名称"]
         law_no = item["_id"][u"条号"]
         print "________________", cnt
         print "训练", law_name, str(law_no)
-        train_result = process_nb(law_name, law_no, 10000)
+        train_result = process_nb(law_name, law_no, 8000)
         ptime += train_result[0]
         ttime += train_result[1]
         p_train_size = train_result[2]
@@ -125,15 +135,16 @@ def auto_train():
         # ######################测试############################
         test_result = process_nb(law_name, law_no, 1000, False)
         accuracy = test_result[0]
-        p_test_size = test_result[1]
-        n_test_size = test_result[2]
+        precision = test_result[1]
+        p_test_size = test_result[2]
+        n_test_size = test_result[3]
         test_end = time.time()
         print "测试完成", "花费"+str(test_end-train_end)
         alm.alarm_down()
 
         # #####################写入文件#########################
         # file_obj.write(law_name+"#"+str(law_no)+" 精度:"+str(test_result)+",数目:"+str(item[u'数目'])+",比例:"+str(round(100*item[u'比例'], ndigits=2))+"% train_cost:"+str(train_end-start)+" test_cost:"+str(test_end-start))
-        file_obj.write(law_name+"#"+str(law_no)+"-A"+str(accuracy)+"-S"+str(p_train_size)+"_"+str(n_train_size)+"_"+str(p_test_size)+"_"+str(n_test_size)+"-C"+str(train_end-start)+"_"+str(test_end-train_end))
+        file_obj.write(law_name+"#"+str(law_no)+"-A"+str(accuracy)+"-S"+str(p_train_size)+"_"+str(n_train_size)+"_"+str(p_test_size)+"_"+str(n_test_size)+"-C"+str(train_end-start)+"_"+str(test_end-train_end)+"-P"+str(precision))
         file_obj.write("\n")
         file_obj.flush()
         # alm.alarm(1)

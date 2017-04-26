@@ -17,10 +17,10 @@ x = []
 y = []
 for result in results:
     accuracy = result[u"精度"]
-    rate = result[u"被引用百分比"]
-    amount = result[u"被引用数量"]
-    y.append(rate)
-    x.append(accuracy)
+    # rate = result[u"被引用百分比"]
+    size =(result[u"正训练集"]+0.0)/result[u"负训练集"]
+    y.append(accuracy)
+    x.append(size)
     # y.append(amount)
 # x = [1, 2, 3, 4, 6]
 # y = [1, 2, 3, 4, 5]

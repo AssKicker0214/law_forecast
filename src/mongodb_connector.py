@@ -187,6 +187,7 @@ class DocFeature:
                 vec = [0 for x in range(0, len(vec_label))]
                 for key, value in words_tf_idfs.items():
                     for i in range(0, len(vec_label)):
+                        # print key, vec_label[i]
                         if key == vec_label[i]:
                             vec[i] = value
                             # print "->", item['doc_no']
@@ -203,7 +204,8 @@ class DocFeature:
                 labels.append(label)
                 negative_amount += 1
                 features.append(vec)
-        return {"features": features, "labels": labels, "positive_amount": positive_amount, "negative_amount": negative_amount}
+        return {"features": features, "labels": labels, "positive_amount": positive_amount,
+                "negative_amount": negative_amount}
 
     def get_doc_feature_by_law(self, law_name, article_no, vec_label):
         features = []
@@ -249,15 +251,19 @@ class DocFeature:
                 features.append(vec)
         return {"doc_nos": doc_nos_excluded, "features": features}
 
-    def text_to_vec(self, tf_idfs, label):
-        cnt = 0
-        vec = [0 for x in range(0, len(label))]
-        for item in tf_idfs:
-            word = item[0]
-            value = item[1]
-            if word == label[cnt]:
-                vec[cnt] = value
-            cnt += 1
+    def text_to_vec(self, tf_idfs, labels):
+        vec = [0 for x in range(0, len(labels))]
+        for i in range(0, len(labels)):
+            label = labels[i]
+            # print label
+            for item in tf_idfs:
+                word = item[0]
+                value = item[1]
+                # print word, label
+                if unicode(word) == unicode(label):
+                    vec[i] = value
+                    # print "equal"
+                    break
         return vec
         # process_doc_tf_idf()
 
@@ -265,12 +271,11 @@ class DocFeature:
 class TrainResult:
     def __init__(self):
         self.collection_train_result = MongoClient("localhost", 27017).get_database("law_forecast_minshi1")[
-            'train_result']
+            'train_result_optimized']
 
     def import_data_from_file(self, path):
         file_obj = open(path, 'r')
-        pattern = "(.+)#(\d+) 精度:(.+),数目:(\d+),比例:([\.\d]+)% train_cost:([\.\d]+) test_cost:([\.\d]+)"
-        # 《中华人民共和国劳动合同法》#85 精度:0.875,数目:57,比例:0.05% train_cost:5.64800000191 test_cost:6.58200001717
+        pattern = "(.+)#(\d+)-A(.+)-S(\d+)_(\d+)_(\d+)_(\d+)-C([\.\d]+)_([\.\d]+)"
         for line in file_obj:
             ptn_obj = re.compile(pattern)
             m = re.search(ptn_obj, line)
@@ -282,15 +287,19 @@ class TrainResult:
                     accuracy = float(m.group(3))
                 except ValueError:
                     accuracy = None
-                amount = int(m.group(4))
-                rate = float(m.group(5))
-                train_cost = float(m.group(6))
-                total_cost = float(m.group(7))
-                test_cost = total_cost - train_cost
+                negative_train_set = int(m.group(5))
+                positive_train_set = int(m.group(4))
+                negative_test_set = int(m.group(7))
+                positive_test_set = int(m.group(6))
+                train_cost = float(m.group(8))
+                test_cost = float(m.group(9))
+                total_cost = test_cost + train_cost
                 # print name, no, accuracy, amount, rate, train_cost, test_cost
                 self.collection_train_result.update({"名称": name, "条号": no},
-                                                    {"$set": {"精度": accuracy, "被引用数量": amount,
-                                                              "被引用百分比": rate,
+                                                    {"$set": {"精度": accuracy, "正训练集": positive_train_set,
+                                                              "负训练集": negative_train_set,
+                                                              "正测试集": positive_test_set,
+                                                              "负测试集": negative_test_set,
                                                               "总时间": total_cost,
                                                               "训练时间": train_cost,
                                                               "测试时间": test_cost}}, True)
@@ -298,6 +307,13 @@ class TrainResult:
                 print line
 
     def get_results(self):
-        results = self.collection_train_result.find({}, {"_id": 0, "测试时间": 0, "训练时间": 0, "总时间": 0},
+        results = self.collection_train_result.find({}, {"_id": 0},
                                                     no_cursor_timeout=True)
         return results
+
+    def get_results_without_precision(self):
+        results = self.collection_train_result.find({"正精度": {"$exists": 0}}, {"名称": 1, "条号": 1}, no_cursor_timeout=True)
+        return results
+
+    def update_attr(self, law_name, law_no, attr):
+        self.collection_train_result.update({"名称": law_name, "条号": law_no}, {"$set": attr})
