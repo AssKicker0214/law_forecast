@@ -2,7 +2,7 @@
 import json
 import os
 import re
-
+import test_matcher as cos_pre
 from sklearn.externals import joblib
 from tool.mysort import sort
 import xml_reader as xml
@@ -92,22 +92,27 @@ def get_tf_idfs(text):
 
 def test(doc_no, vec=None):
     print "测试：", doc_no
-    predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
+    # predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
+    predicted = cos_pre.cos_predict(doc_no)
     laws = get_relevant_law(doc_no)
     predicted_laws = predicted['labels']
     predicted_reliability = predicted['values']
     hit = 0
     print "======", "预测", "======"
     index = 0
-    sort(predicted["labels"], predicted["values"])
+    # sort(predicted["labels"], predicted["values"])
     pred_array = []
     for i in range(0, len(predicted_reliability)):
         label = predicted["labels"][i]
         value = predicted["values"][i]
         if value > 0:
             index += 1
-            pred_array.append(label.decode('gbk'))
-            print str(index) + ": " + label.decode(encoding='gbk').encode(), "【", value, "】"
+            try:
+                pred_array.append(label.decode('gbk'))
+                print str(index) + ": " + label.decode(encoding='gbk').encode(), "【", value, "】"
+            except UnicodeDecodeError:
+                pred_array.append(label)
+                # print str(index) + ": " + label.encode(), "【", value, "】"
 
 
     models = TrainResult().get_results()
@@ -147,9 +152,8 @@ def test(doc_no, vec=None):
     print "======", "实际", "======"
     for law in laws:
         print law[u"名称"], "#"+str(law[u"条号"])
-    print ""
-    return hits
-    # print "hit: ", hit, "miss:", len(laws)-hit, "of", str(len(predicted_laws))
+    print "hit: ", len(hits), "miss:", len(laws)-len(hits), "of", str(len(predicted_laws))
+    return {"hits": hits, "hit_rate": (0.0+len(hits))/len(pred_set)}
 
 
 def positive_precision(law_name, law_no):
@@ -162,7 +166,7 @@ def positive_precision(law_name, law_no):
     contains = 0
     total = len(doc_nos)
     for i in range(0, total):
-        hits = test(doc_nos[i], vec=doc_features[i])
+        hits = test(doc_nos[i], vec=doc_features[i])["hits"]
         for hit in hits:
             if hit == law:
                 contains += 1
@@ -171,12 +175,29 @@ def positive_precision(law_name, law_no):
     return contains/(total+0.0)
 
 
-rsDB = TrainResult()
-results = rsDB.get_results_without_precision()
-for result in results:
-    precision = positive_precision(result[u"名称"], result[u"条号"])
-    rsDB.update_attr(result[u"名称"], result[u"条号"], {"正精度": precision})
-# positive_precision("《中华人民共和国担保法》", 19)
+def append_precision():
+    rsDB = TrainResult()
+    results = rsDB.get_results_without_precision()
+    for result in results:
+        precision = positive_precision(result[u"名称"], result[u"条号"])
+        rsDB.update_attr(result[u"名称"], result[u"条号"], {"精确度": precision})
+
+
+def random_test():
+    testDB = DocFeature(False)
+    vec_label = testDB.get_word_vec_label()
+    doc_nos = testDB.get_doc_no_randomly(50)
+    cnt = 0
+    hr = 0.0
+    for doc_no in doc_nos:
+        hit_rate = test(doc_no)["hit_rate"]
+        cnt += 1
+        hr += hit_rate
+    print hr/cnt
+
+
+# random_test()
+positive_precision("《中华人民共和国担保法》", 19)
 # test(1244141)
 # models = [{"名称": "1", "条号":1}, {"名称":2, "条号":2}]
 # laws = [{"名称": "3", "条号":3}, {"名称":2, "条号":2}]

@@ -16,11 +16,14 @@ results = db.get_results()
 x = []
 y = []
 for result in results:
-    accuracy = result[u"精度"]
+    # accuracy = result[u"精度"]
     # rate = result[u"被引用百分比"]
-    size =(result[u"正训练集"]+0.0)/result[u"负训练集"]
-    y.append(accuracy)
-    x.append(size)
+    # size =(result[u"正训练集"]+0.0)/result[u"负训练集"]
+    try:
+        y.append(result[u"精确率"])
+        x.append((0.0+result[u"负训练集"])/result[u"正训练集"])
+    except KeyError:
+        continue
     # y.append(amount)
 # x = [1, 2, 3, 4, 6]
 # y = [1, 2, 3, 4, 5]

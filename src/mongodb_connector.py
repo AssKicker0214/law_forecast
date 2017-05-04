@@ -265,7 +265,32 @@ class DocFeature:
                     # print "equal"
                     break
         return vec
+
+    def get_vec_by_doc_no(self, doc_no, labels):
+        doc = self.collection.find_one({"doc_no": str(doc_no)}, no_cursor_timeout=True)
+        tf_idfs = doc["words_tf_idfs"]
+        vec = [0 for x in range(0, len(labels))]
+        for key, value in tf_idfs.items():
+            i = 0
+            for label in labels:
+                if unicode(key) == unicode(label):
+                    vec[i] = value
+                    break
+                i += 1
+        return vec
         # process_doc_tf_idf()
+
+
+    def get_doc_no_randomly(self, number=50):
+        doc_size = self.collection.find().count()
+
+        avg_gap = (doc_size+0.0)/number
+        index = 0
+        doc_nos = []
+        for doc in self.collection.find({},{"doc_no":1},no_cursor_timeout=True):
+            if random.random() < 1.0/avg_gap:
+                doc_nos.append(doc["doc_no"])
+        return doc_nos
 
 
 class TrainResult:
@@ -275,7 +300,7 @@ class TrainResult:
 
     def import_data_from_file(self, path):
         file_obj = open(path, 'r')
-        pattern = "(.+)#(\d+)-A(.+)-S(\d+)_(\d+)_(\d+)_(\d+)-C([\.\d]+)_([\.\d]+)"
+        pattern = "(.+)#(\d+)-A(.+)-S(\d+)_(\d+)_(\d+)_(\d+)-C([\.\d]+)_([\.\d]+)-P([\.\d]+)"
         for line in file_obj:
             ptn_obj = re.compile(pattern)
             m = re.search(ptn_obj, line)
@@ -294,15 +319,17 @@ class TrainResult:
                 train_cost = float(m.group(8))
                 test_cost = float(m.group(9))
                 total_cost = test_cost + train_cost
+                precision = float(m.group(10))
                 # print name, no, accuracy, amount, rate, train_cost, test_cost
                 self.collection_train_result.update({"名称": name, "条号": no},
-                                                    {"$set": {"精度": accuracy, "正训练集": positive_train_set,
+                                                    {"$set": {"准确率": accuracy, "正训练集": positive_train_set,
                                                               "负训练集": negative_train_set,
                                                               "正测试集": positive_test_set,
                                                               "负测试集": negative_test_set,
                                                               "总时间": total_cost,
                                                               "训练时间": train_cost,
-                                                              "测试时间": test_cost}}, True)
+                                                              "测试时间": test_cost,
+                                                              "精确率": precision}}, True)
             else:
                 print line
 
@@ -312,7 +339,7 @@ class TrainResult:
         return results
 
     def get_results_without_precision(self):
-        results = self.collection_train_result.find({"正精度": {"$exists": 0}}, {"名称": 1, "条号": 1}, no_cursor_timeout=True)
+        results = self.collection_train_result.find({"精确率": {"$exists": 0}}, {"名称": 1, "条号": 1}, no_cursor_timeout=True)
         return results
 
     def update_attr(self, law_name, law_no, attr):

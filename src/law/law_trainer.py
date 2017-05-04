@@ -43,6 +43,7 @@ def format_path(file_name):
     return unicode("../../data/model/" + file_name + ".m", "utf-8")
 
 
+# ################deprecated#####################
 def test(law_name, law_no, is_train=True):
     print "使用训练集?", is_train
     mc = DocFeature(is_train)
