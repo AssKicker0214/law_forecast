@@ -164,6 +164,9 @@ class DocFeature:
         else:
             self.collection = db_minshi['doc_for_test']
 
+
+    # def get_doc_nos(self):
+
     def get_word_vec_label(self):
         itr = collection_doc_word_reference.find({"reference": {"$gt": 1}}, {"word": 1, "_id": 0},
                                                  no_cursor_timeout=True)

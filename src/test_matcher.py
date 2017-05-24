@@ -26,6 +26,7 @@ def cos_predict(doc_no, top=100):
     df = DocFeature(False)
     vec_label = df.get_word_vec_label()
     text_vector = {"vector": df.get_vec_by_doc_no(doc_no, vec_label), "word": vec_label}
+    print "向量准备完毕"
     articles = []
     products = []
     print doc_no

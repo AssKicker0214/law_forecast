@@ -6,6 +6,8 @@ import sys
 from statistic.withdraw_doc import get_withdraw_doc_no
 import xml_reader as xml
 
+sys.path.append("..")
+from mongodb_connector import DocFeature
 
 def corresponding_to_patterns(text, patterns):
     # patterns = get_withdraw_accusation_patterns()
@@ -34,17 +36,18 @@ t = "撤销终止，其权利义务由被告承继。为此，原告备文起诉
 def test():
     withdraw_doc_no_list = get_withdraw_doc_no()
     patterns = get_withdraw_accusation_patterns()
-    dir_name = "../data/test_sets/MinShi1/train/"
+    dir_name = "../data/test_sets/MinShi1/test/"
     file_list = os.listdir(dir_name)
     i = 0
     j = 0
     x = 0
+    miss = 0
     start = False
+    file_list = DocFeature(False).get_doc_no_randomly(5000)
     for file_name in file_list:
-        pattern = re.compile('(\d+)\.xml')
+        pattern = re.compile('(\d+)(\.xml)*')
         m = re.search(pattern, file_name)
         if m:
-            x += 1
             doc_no = m.group(1)
             ##########
             # if doc_no == "1123096":
@@ -55,6 +58,7 @@ def test():
             # isValid = analyse(doc_no, "../data/test_sets/MinShi1/train/" + str(doc_no) + ".xml")
             text = xml.get_AJJBQK_SSJL(dir_name + str(doc_no) + ".xml")
             if text:
+                x += 1
                 # print text
                 print "~~~~~~~~~~~~~~~~~~~~~~~~~"
                 if corresponding_to_patterns(text.encode('utf-8'), patterns):
@@ -77,9 +81,10 @@ def test():
                         if withdraw_doc_no == doc_no:
                             print "需要补充样式：", doc_no, "<" + str((0.0 + i) / x) + ">", i, x
                             print "=============================="
+                            miss += 1
                             break
 
-                print "hit:", i, "wrong:", j, "total:", x
+                print "hit:", i, "wrong:", j, "miss:", miss, "total:", x
         else:
             print "文件名错误: ", file_name
     print "撤诉数量:", i, "总数量:", x

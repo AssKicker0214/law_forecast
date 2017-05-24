@@ -33,9 +33,9 @@ def predict(doc_no, model_dir="../data/model/", vec=None):
             print "名称不合法->", model_file.decode(encoding='gbk').encode()
             continue
         law = splited['name'] + "-" + str(splited["no"])
-        reliability = get_reliability(splited["accuracy"], splited["rate"])
-        if reliability == 0:
-            continue
+        # reliability = get_reliability(splited["accuracy"], splited["rate"])
+        # if reliability == 0:
+        #     continue
         cnt += 1
         model_path = model_dir + model_file#.decode(encoding='gbk').encode(encoding='utf-8')
         # print model_path
@@ -49,26 +49,26 @@ def predict(doc_no, model_dir="../data/model/", vec=None):
         if result[0] == 1:
             i += 1
             predicted_law.append(law)
-            predicted_reliability.append(reliability)
-            # print law, str(i) + "/" + str(cnt)
+            predicted_reliability.append(1)
     sorted_pre = sort(predicted_law, predicted_reliability)
     print "# 使用有效模型", cnt
     return sorted_pre
 
 
 def split_model_name(model_name):
-    pattern_str = '(.+)-#(\d+)-A(.+)-R([\.\d]+).m'
+    # pattern_str = '(.+)-#(\d+)-A(.+)-R([\.\d]+).*.m'
+    pattern_str = '(.+)-#*(\d+).*.m'
     pattern = re.compile(pattern_str)
     m = re.search(pattern, model_name)
     splited = {}
     if m:
         splited['name'] = m.group(1)
         splited['no'] = m.group(2)
-        try:
-            splited['accuracy'] = float(m.group(3))
-        except ValueError:
-            splited['accuracy'] = 0
-        splited['rate'] = float(m.group(4))
+        # try:
+        #     splited['accuracy'] = float(m.group(3))
+        # except ValueError:
+        #     splited['accuracy'] = 0
+        # splited['rate'] = float(m.group(4))
     return splited
 
 
@@ -92,15 +92,15 @@ def get_tf_idfs(text):
 
 def test(doc_no, vec=None):
     print "测试：", doc_no
-    # predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
-    predicted = cos_pre.cos_predict(doc_no)
+    predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
+    # predicted = cos_pre.cos_predict(doc_no)
     laws = get_relevant_law(doc_no)
     predicted_laws = predicted['labels']
     predicted_reliability = predicted['values']
     hit = 0
     print "======", "预测", "======"
     index = 0
-    # sort(predicted["labels"], predicted["values"])
+    sort(predicted["labels"], predicted["values"])
     pred_array = []
     for i in range(0, len(predicted_reliability)):
         label = predicted["labels"][i]
@@ -153,7 +153,10 @@ def test(doc_no, vec=None):
     for law in laws:
         print law[u"名称"], "#"+str(law[u"条号"])
     print "hit: ", len(hits), "miss:", len(laws)-len(hits), "of", str(len(predicted_laws))
-    return {"hits": hits, "hit_rate": (0.0+len(hits))/len(pred_set)}
+    hit_rate = 0.0
+    if len(pred_set)>0:
+        hit_rate = (0.0+len(hits))/len(pred_set)
+    return {"hits": hits, "hit_rate": hit_rate}
 
 
 def positive_precision(law_name, law_no):
@@ -186,7 +189,7 @@ def append_precision():
 def random_test():
     testDB = DocFeature(False)
     vec_label = testDB.get_word_vec_label()
-    doc_nos = testDB.get_doc_no_randomly(50)
+    doc_nos = testDB.get_doc_no_randomly(10)
     cnt = 0
     hr = 0.0
     for doc_no in doc_nos:
@@ -196,8 +199,8 @@ def random_test():
     print hr/cnt
 
 
-# random_test()
-positive_precision("《中华人民共和国担保法》", 19)
+random_test()
+# positive_precision("《中华人民共和国担保法》", 19)
 # test(1244141)
 # models = [{"名称": "1", "条号":1}, {"名称":2, "条号":2}]
 # laws = [{"名称": "3", "条号":3}, {"名称":2, "条号":2}]

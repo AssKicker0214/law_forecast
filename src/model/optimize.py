@@ -17,7 +17,7 @@ def rename():
         print json.dumps(result,encoding='utf-8',ensure_ascii=False)
         name = result[u"名称"]
         no = result[u"条号"]
-        accuracy = result[u"精度"]
+        accuracy = result[u"精确度"]
         rate = (result[u"负训练集"]+0.0)/result[u"正训练集"]
         new_path = unicode(dir_name+name+u"-#"+str(no)+"-A"+str(accuracy)+"-R"+str(rate)+".m")
         old_path = unicode(dir_name+name+"-"+str(no)+".m")

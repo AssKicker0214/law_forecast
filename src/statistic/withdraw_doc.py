@@ -3,7 +3,7 @@ from pymongo import MongoClient
 import law.law_analyser
 client = MongoClient("localhost", 27017)
 db = client.get_database("law_forecast_minshi1")
-collection_doc = db['doc']
+collection_doc = db['doc_for_test']
 
 
 # 含有《民事诉讼法》145条的文书
