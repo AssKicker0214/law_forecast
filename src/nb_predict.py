@@ -92,8 +92,8 @@ def get_tf_idfs(text):
 
 def test(doc_no, vec=None):
     print "测试：", doc_no
-    predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
-    # predicted = cos_pre.cos_predict(doc_no)
+    # predicted = predict(doc_no, model_dir="../data/new_model/", vec=vec)
+    predicted = cos_pre.cos_predict(doc_no)
     laws = get_relevant_law(doc_no)
     predicted_laws = predicted['labels']
     predicted_reliability = predicted['values']
@@ -134,18 +134,6 @@ def test(doc_no, vec=None):
     outs = law_set.difference(model_set)
     print "======", "命中:", len(hits), "======"
     print json.dumps(list(hits), encoding='utf-8', ensure_ascii=False, indent=1)
-    # for law in laws:
-    #     for i in range(0, len(predicted_laws)):
-    #         plaw = predicted_laws[i].decode(encoding='gbk')
-    #         if unicode(law[u"名称"]+"-"+str(law[u"条号"])) == plaw:
-    #             hit += 1
-    #             hits.append([plaw, predicted_reliability[i]])
-    #             # print plaw, "【", predicted_reliability[i], "】"
-    #     for i in range(0, len(models)):
-    #         model_law_name = models[i]["名称"]
-    #         model_law_no = models[i]["条号"]
-    #         if model_law_name == law[u"名称"] and model_law_no == law[u"条号"]:
-    #             pass
     print "======", "遗漏:", len(miss), "======"
     print json.dumps(list(miss), encoding='utf-8', ensure_ascii=False, indent=1)
 
@@ -186,10 +174,10 @@ def append_precision():
         rsDB.update_attr(result[u"名称"], result[u"条号"], {"精确度": precision})
 
 
-def random_test():
+def random_test(number=10):
     testDB = DocFeature(False)
     vec_label = testDB.get_word_vec_label()
-    doc_nos = testDB.get_doc_no_randomly(10)
+    doc_nos = testDB.get_doc_no_randomly(number)
     cnt = 0
     hr = 0.0
     for doc_no in doc_nos:
@@ -198,10 +186,10 @@ def random_test():
         hr += hit_rate
     print hr/cnt
 
-
-random_test()
+# 1015082 1016766 1015698 1015992 1016116
+random_test(300)
 # positive_precision("《中华人民共和国担保法》", 19)
-# test(1244141)
+# test(1242300)
 # models = [{"名称": "1", "条号":1}, {"名称":2, "条号":2}]
 # laws = [{"名称": "3", "条号":3}, {"名称":2, "条号":2}]
 # models = [1, 2]

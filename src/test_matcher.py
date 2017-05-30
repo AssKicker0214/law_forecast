@@ -39,7 +39,7 @@ def cos_predict(doc_no, top=100):
             products.append(product)
     print "sorting..."
     sort(articles, products)
-    rs = {"labels":[], "values":[]};
+    rs = {"labels":[], "values":[]}
     for i in range(0, top):
         print i+1, articles[i], products[i]
         rs["labels"].append(articles[i])

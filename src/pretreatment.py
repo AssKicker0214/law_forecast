@@ -43,7 +43,7 @@ def test():
     x = 0
     miss = 0
     start = False
-    file_list = DocFeature(False).get_doc_no_randomly(5000)
+    file_list = DocFeature(False).get_doc_no_randomly(500)
     for file_name in file_list:
         pattern = re.compile('(\d+)(\.xml)*')
         m = re.search(pattern, file_name)
